@@ -8,7 +8,19 @@ require("dotenv").config();
 const app = express();
 
 // middleware
-app.use(cors()); 
+const corsOptions = {
+  origin: [
+    'https://form-builder-vdom.vercel.app',
+    'https://formbuilder-2-dlmp.onrender.com',
+    'http://localhost:5173'  // For local development
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
+
+// Apply CORS with options
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // connect to mongoDB

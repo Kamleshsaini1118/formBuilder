@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:5000/api/forms"; // Backend URL
+const API_URL = "https://formbuilder-2-dlmp.onrender.com/api/forms"; // Backend URL
 
 // Get all forms
 export const getForms = async () => {
