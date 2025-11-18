@@ -322,7 +322,7 @@ const SubmitForm = () => {
         if (data?.fields) {
           const initialResponses = {};
           data.fields.forEach(field => {
-            initialResponses[field._id] = ''; // Changed from field.id to field._id
+            initialResponses[field.id] = '';
           });
           setResponses(initialResponses);
         }
@@ -343,17 +343,20 @@ const SubmitForm = () => {
     setError('');
 
     try {
-      const response = await submitResponse(formId, responses);
+      // Filter out empty responses if needed
+      const filteredResponses = Object.fromEntries(
+        Object.entries(responses).filter(([_, value]) => value !== '')
+      );
+
+      const response = await submitResponse(formId, filteredResponses);
       
-      // Format the response data before setting state
-      const formattedResponse = {
-        id: response._id,
-        formId: response.formId,
-        submittedAt: new Date(response.createdAt).toLocaleString(),
-        responses: response.responses
-      };
-      
-      setSubmittedResponse(formattedResponse);
+      // Safely handle the response
+      setSubmittedResponse({
+        id: response?._id || 'N/A',
+        formId: response?.formId || formId,
+        submittedAt: response?.createdAt ? new Date(response.createdAt).toLocaleString() : 'Just now',
+        responses: response?.responses || filteredResponses
+      });
     } catch (err) {
       console.error('Error submitting form:', err);
       setError('Failed to submit form. Please try again.');
@@ -382,7 +385,7 @@ const SubmitForm = () => {
   }
 
   // Error state
-  if (error && !form) {
+  if (error) {
     return (
       <div className="max-w-2xl mx-auto p-6">
         <div className="bg-red-50 border-l-4 border-red-500 p-4">
@@ -441,6 +444,20 @@ const SubmitForm = () => {
                   {submittedResponse.submittedAt}
                 </dd>
               </div>
+              <div className="bg-gray-50 px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                <dt className="text-sm font-medium text-gray-500">Your answers</dt>
+                <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2 space-y-2">
+                  {Object.entries(submittedResponse.responses || {}).map(([fieldId, value]) => {
+                    const field = form?.fields?.find(f => f.id === fieldId);
+                    return (
+                      <div key={fieldId} className="border-b border-gray-100 pb-2 last:border-0 last:pb-0">
+                        <div className="font-medium text-gray-700">{field?.label || 'Untitled Field'}</div>
+                        <div className="text-gray-600">{value || 'No response'}</div>
+                      </div>
+                    );
+                  })}
+                </dd>
+              </div>
             </dl>
           </div>
 
@@ -485,9 +502,9 @@ const SubmitForm = () => {
 
         <form onSubmit={handleSubmit} className="px-4 py-5 sm:p-6 space-y-6">
           {form?.fields?.map((field) => (
-            <div key={field._id} className="space-y-2">
+            <div key={field.id} className="space-y-2">
               <label
-                htmlFor={`field-${field._id}`}
+                htmlFor={`field-${field.id}`}
                 className="block text-sm font-medium text-gray-700"
               >
                 {field.label}
@@ -496,21 +513,21 @@ const SubmitForm = () => {
               
               {field.type === 'textarea' ? (
                 <textarea
-                  id={`field-${field._id}`}
+                  id={`field-${field.id}`}
                   rows={4}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                  value={responses[field._id] || ''}
-                  onChange={(e) => handleChange(field._id, e.target.value)}
+                  value={responses[field.id] || ''}
+                  onChange={(e) => handleChange(field.id, e.target.value)}
                   required={field.required}
                   placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
                 />
               ) : (
                 <input
                   type={field.type || 'text'}
-                  id={`field-${field._id}`}
+                  id={`field-${field.id}`}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                  value={responses[field._id] || ''}
-                  onChange={(e) => handleChange(field._id, e.target.value)}
+                  value={responses[field.id] || ''}
+                  onChange={(e) => handleChange(field.id, e.target.value)}
                   required={field.required}
                   placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
                 />
