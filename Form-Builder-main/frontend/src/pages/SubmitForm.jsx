@@ -36,8 +36,9 @@ const SubmitForm = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState(null);
   const [responses, setResponses] = useState({});
-  const [submittedResponse, setSubmittedResponse] = useState(null); // ✅ Show response after submit
+  const [submittedResponse, setSubmittedResponse] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -48,13 +49,13 @@ const SubmitForm = () => {
         if (data?.fields) {
           const initialResponses = {};
           data.fields.forEach((field) => {
-            initialResponses[field._id] = "";
+            initialResponses[field.id] = '';
           });
           setResponses(initialResponses);
         }
       } catch (err) {
-        console.error("Error fetching form:", err);
-        toast.error("Failed to load form.");
+        console.error('Error fetching form:', err);
+        setError('Failed to load form');
       } finally {
         setLoading(false);
       }
@@ -63,30 +64,54 @@ const SubmitForm = () => {
     fetchForm();
   }, [formId]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setResponses((prevResponses) => ({
-      ...prevResponses,
-      [name]: value,
-    }));
+  // const handleChange = (e) => {
+  //   const { name, value } = e.target;
+  //   setResponses((prevResponses) => ({
+  //     ...prevResponses,
+  //     [name]: value,
+  //   }));
+  // };
+
+  // const handleSubmit = async (e) => {
+  //   e.preventDefault();
+
+  //   if (Object.values(responses).some((value) => value.trim() === "")) {
+  //     toast.error("Please fill all required fields.");
+  //     return;
+  //   }
+
+  //   try {
+  //     const savedResponse = await submitResponse(formId, responses);
+  //     toast.success("Form submitted successfully!");
+  //     setSubmittedResponse(savedResponse); // ✅ Save response to state
+  //   } catch (err) {
+  //     console.error("Error submitting response:", err);
+  //     toast.error("Failed to submit form.");
+  //   }
+  // };
+
+    const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await submitResponse(formId, responses);
+      // Format the response before setting it to state
+      setSubmittedResponse({
+        id: response._id,
+        formId: response.formId,
+        submittedAt: new Date(response.createdAt).toLocaleString(),
+        responses: response.responses
+      });
+    } catch (err) {
+      console.error('Error submitting form:', err);
+      setError('Failed to submit form');
+    }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (Object.values(responses).some((value) => value.trim() === "")) {
-      toast.error("Please fill all required fields.");
-      return;
-    }
-
-    try {
-      const savedResponse = await submitResponse(formId, responses);
-      toast.success("Form submitted successfully!");
-      setSubmittedResponse(savedResponse); // ✅ Save response to state
-    } catch (err) {
-      console.error("Error submitting response:", err);
-      toast.error("Failed to submit form.");
-    }
+    const handleChange = (fieldId, value) => {
+    setResponses(prev => ({
+      ...prev,
+      [fieldId]: value
+    }));
   };
 
   if (loading) return (
