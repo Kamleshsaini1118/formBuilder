@@ -21,7 +21,7 @@ const SubmitForm = () => {
       try {
         const data = await getFormById(formId);
         setForm(data);
-        
+
         // Initialize responses object with empty strings
         if (data?.fields) {
           const initialResponses = {};
@@ -53,7 +53,7 @@ const SubmitForm = () => {
       );
 
       const response = await submitResponse(formId, filteredResponses);
-      
+
       // Safely handle the response
       setSubmittedResponse({
         id: response?._id || 'N/A',
@@ -156,7 +156,13 @@ const SubmitForm = () => {
                     return (
                       <div key={fieldId} className="border-b border-gray-100 pb-2 last:border-0 last:pb-0">
                         <div className="font-medium text-gray-700">{field?.label || 'Untitled Field'}</div>
-                        <div className="text-gray-600">{value || 'No response'}</div>
+                        {/* <div className="text-gray-600">{value || 'No response'}</div> */}
+                        <div className="text-gray-600">
+                          {typeof value === 'object'
+                            ? JSON.stringify(value, null, 2)
+                            : value || 'No response'}
+                        </div>
+
                       </div>
                     );
                   })}
@@ -214,7 +220,7 @@ const SubmitForm = () => {
                 {field.label}
                 {field.required && <span className="text-red-500 ml-1">*</span>}
               </label>
-              
+
               {field.type === 'textarea' ? (
                 <textarea
                   id={`field-${field.id}`}
@@ -236,7 +242,7 @@ const SubmitForm = () => {
                   placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
                 />
               )}
-              
+
               {field.description && (
                 <p className="mt-1 text-xs text-gray-500">{field.description}</p>
               )}
@@ -264,11 +270,10 @@ const SubmitForm = () => {
               disabled={submitting}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className={`inline-flex items-center px-6 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white ${
-                submitting
+              className={`inline-flex items-center px-6 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white ${submitting
                   ? 'bg-blue-400 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-              }`}
+                }`}
             >
               {submitting ? (
                 <>
