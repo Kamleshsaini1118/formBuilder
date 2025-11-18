@@ -131,63 +131,41 @@
 // export default SubmitForm;
 
 
-import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { getFormById } from "../services/formService";
-import { submitResponse } from "../services/responseService";
-import { toast } from "react-hot-toast";
-import { IoArrowBack, IoCheckmarkCircle, IoDocumentText } from "react-icons/io5";
-import { motion, AnimatePresence } from "framer-motion";
-
-// Animation variants
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.2
-    }
-  }
-};
-
-const itemVariants = {
-  hidden: { y: 20, opacity: 0 },
-  visible: {
-    y: 0,
-    opacity: 1,
-    transition: {
-      type: "spring",
-      stiffness: 100,
-      damping: 10
-    }
-  }
-};
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { getFormById } from '../services/formService';
+import { submitResponse } from '../services/responseService';
+import { motion } from 'framer-motion';
+import { FiCheckCircle, FiLoader, FiArrowLeft } from 'react-icons/fi';
 
 const SubmitForm = () => {
   const { formId } = useParams();
   const navigate = useNavigate();
   const [form, setForm] = useState(null);
   const [responses, setResponses] = useState({});
-  const [submittedResponse, setSubmittedResponse] = useState(null); // ✅ Show response after submit
+  const [submittedResponse, setSubmittedResponse] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
+  // Fetch form data
   useEffect(() => {
     const fetchForm = async () => {
       try {
         const data = await getFormById(formId);
         setForm(data);
-
+        
+        // Initialize responses object with empty strings
         if (data?.fields) {
           const initialResponses = {};
-          data.fields.forEach((field) => {
-            initialResponses[field._id] = "";
+          data.fields.forEach(field => {
+            initialResponses[field.id] = '';
           });
           setResponses(initialResponses);
         }
       } catch (err) {
-        console.error("Error fetching form:", err);
-        toast.error("Failed to load form.");
+        console.error('Error fetching form:', err);
+        setError('Failed to load form. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -196,190 +174,248 @@ const SubmitForm = () => {
     fetchForm();
   }, [formId]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setResponses((prevResponses) => ({
-      ...prevResponses,
-      [name]: value,
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+
+    try {
+      // Filter out empty responses if needed
+      const filteredResponses = Object.fromEntries(
+        Object.entries(responses).filter(([_, value]) => value !== '')
+      );
+
+      const response = await submitResponse(formId, filteredResponses);
+      
+      // Safely handle the response
+      setSubmittedResponse({
+        id: response?._id || 'N/A',
+        formId: response?.formId || formId,
+        submittedAt: response?.createdAt ? new Date(response.createdAt).toLocaleString() : 'Just now',
+        responses: response?.responses || filteredResponses
+      });
+    } catch (err) {
+      console.error('Error submitting form:', err);
+      setError('Failed to submit form. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleChange = (fieldId, value) => {
+    setResponses(prev => ({
+      ...prev,
+      [fieldId]: value
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (Object.values(responses).some((value) => value.trim() === "")) {
-      toast.error("Please fill all required fields.");
-      return;
-    }
-
-    try {
-      const savedResponse = await submitResponse(formId, responses);
-      toast.success("Form submitted successfully!");
-      setSubmittedResponse(savedResponse); // ✅ Save response to state
-    } catch (err) {
-      console.error("Error submitting response:", err);
-      toast.error("Failed to submit form.");
-    }
-  };
-
-  if (loading) return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <div className="text-center">
-        <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-        <p className="mt-4 text-gray-600">Loading your form...</p>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-gray-600 hover:text-blue-600 transition-colors group"
-          >
-            <IoArrowBack className="group-hover:-translate-x-0.5 transition-transform" size={20} />
-            <span className="font-medium">Back to Forms</span>
-          </button>
-          <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-sm text-gray-600">Form Active</span>
-          </div>
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <FiLoader className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading form...</p>
         </div>
+      </div>
+    );
+  }
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="bg-white rounded-xl shadow-xl overflow-hidden"
-        >
-          {/* Form Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 sm:p-8 text-white">
-            <div className="flex items-center justify-center w-12 h-12 bg-white/20 rounded-lg mb-4">
-              <IoDocumentText size={24} />
+  // Error state
+  if (error) {
+    return (
+      <div className="max-w-2xl mx-auto p-6">
+        <div className="bg-red-50 border-l-4 border-red-500 p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-center">
-              {form?.title || "Untitled Form"}
-            </h1>
-            {form?.description && (
-              <p className="mt-2 text-center text-blue-100 max-w-2xl mx-auto">
-                {form.description}
-              </p>
-            )}
-          </div>
-
-          {/* Form Content */}
-          <div className="p-6 sm:p-8">
-            <AnimatePresence>
-              {submittedResponse ? (
-                <motion.div
-                  key="success"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-center py-8"
-                >
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <IoCheckmarkCircle className="text-green-600" size={40} />
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-800 mb-2">Form Submitted Successfully!</h2>
-                  <p className="text-gray-600 mb-8">Thank you for your submission.</p>
-                  
-                  <div className="bg-green-50 border border-green-200 rounded-xl p-6 max-w-lg mx-auto text-left">
-                    <h3 className="font-medium text-green-800 mb-4 flex items-center gap-2">
-                      <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                      Your Response
-                    </h3>
-                    <div className="space-y-3">
-                      {Object.entries(submittedResponse).map(([fieldId, value]) => {
-                        const fieldLabel = form?.fields?.find((f) => f._id === fieldId)?.label || "Field";
-                        return (
-                          <div key={fieldId} className="flex flex-col sm:flex-row sm:items-center">
-                            <span className="text-sm font-medium text-gray-600 sm:w-1/3">{fieldLabel}</span>
-                            <span className="text-gray-800 sm:w-2/3 break-words">{value || "-"}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => setSubmittedResponse(null)}
-                    className="mt-8 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
-                  >
-                    Submit Another Response
-                  </button>
-                </motion.div>
-              ) : (
-                <motion.form
-                  key="form"
-                  onSubmit={handleSubmit}
-                  variants={containerVariants}
-                  initial="hidden"
-                  animate="visible"
-                  className="space-y-6"
-                >
-                  {form?.fields?.map((field, index) => (
-                    <motion.div
-                      key={field._id}
-                      variants={itemVariants}
-                      className="bg-gray-50 p-4 rounded-xl border border-gray-100"
-                    >
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {field.label}
-                        {field.required && <span className="text-red-500 ml-1">*</span>}
-                      </label>
-                      {field.type === 'textarea' ? (
-                        <textarea
-                          name={field._id}
-                          value={responses[field._id] || ""}
-                          onChange={handleChange}
-                          className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                          rows="3"
-                          required={field.required}
-                        />
-                      ) : (
-                        <input
-                          type={field.type}
-                          name={field._id}
-                          value={responses[field._id] || ""}
-                          onChange={handleChange}
-                          className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                          required={field.required}
-                        />
-                      )}
-                    </motion.div>
-                  ))}
-
-                  <motion.div variants={itemVariants} className="pt-4">
-                    <button
-                      type="submit"
-                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3.5 rounded-xl shadow-md hover:shadow-lg hover:from-blue-700 hover:to-indigo-700 transition-all font-medium text-sm"
-                    >
-                      Submit Form
-                    </button>
-                    <p className="mt-3 text-center text-xs text-gray-500">
-                      Your information is secure and will only be used for the intended purpose.
-                    </p>
-                  </motion.div>
-                </motion.form>
-              )}
-            </AnimatePresence>
-          </div>
-        </motion.div>
-
-        {/* Footer */}
-        <div className="mt-8 text-center text-sm text-gray-500">
-          <p>Powered by FormBuilder Pro</p>
-          <div className="flex justify-center gap-4 mt-2">
-            <a href="#" className="hover:text-blue-600 transition-colors">Privacy Policy</a>
-            <span>•</span>
-            <a href="#" className="hover:text-blue-600 transition-colors">Terms of Service</a>
+            <div className="ml-3">
+              <p className="text-sm text-red-700">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-2 text-sm font-medium text-red-700 hover:text-red-600"
+              >
+                Try again
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    );
+  }
+
+  // Success state
+  if (submittedResponse) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-2xl mx-auto p-6"
+      >
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+              <FiCheckCircle className="h-6 w-6 text-green-600" />
+            </div>
+            <h2 className="mt-3 text-2xl font-bold text-gray-900">Form Submitted Successfully!</h2>
+            <p className="mt-2 text-sm text-gray-500">
+              Thank you for your submission. Your response has been recorded.
+            </p>
+          </div>
+
+          <div className="mt-8 border-t border-gray-200 pt-6">
+            <h3 className="text-lg font-medium text-gray-900">Your Response Details</h3>
+            <dl className="mt-4 space-y-4">
+              <div className="bg-gray-50 px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                <dt className="text-sm font-medium text-gray-500">Response ID</dt>
+                <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                  {submittedResponse.id}
+                </dd>
+              </div>
+              <div className="bg-white px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                <dt className="text-sm font-medium text-gray-500">Submitted at</dt>
+                <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                  {submittedResponse.submittedAt}
+                </dd>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                <dt className="text-sm font-medium text-gray-500">Your answers</dt>
+                <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2 space-y-2">
+                  {Object.entries(submittedResponse.responses || {}).map(([fieldId, value]) => {
+                    const field = form?.fields?.find(f => f.id === fieldId);
+                    return (
+                      <div key={fieldId} className="border-b border-gray-100 pb-2 last:border-0 last:pb-0">
+                        <div className="font-medium text-gray-700">{field?.label || 'Untitled Field'}</div>
+                        <div className="text-gray-600">{value || 'No response'}</div>
+                      </div>
+                    );
+                  })}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          <div className="mt-8 flex justify-end space-x-3">
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <FiArrowLeft className="-ml-1 mr-2 h-4 w-4" />
+              Back to Home
+            </button>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Submit Another Response
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Form state
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="max-w-2xl mx-auto p-4 sm:p-6"
+    >
+      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div className="px-4 py-5 sm:px-6 bg-gray-50 border-b border-gray-200">
+          <h1 className="text-2xl font-semibold text-gray-900">{form?.title || 'Untitled Form'}</h1>
+          {form?.description && (
+            <p className="mt-1 max-w-2xl text-sm text-gray-500">
+              {form.description}
+            </p>
+          )}
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-4 py-5 sm:p-6 space-y-6">
+          {form?.fields?.map((field) => (
+            <div key={field.id} className="space-y-2">
+              <label
+                htmlFor={`field-${field.id}`}
+                className="block text-sm font-medium text-gray-700"
+              >
+                {field.label}
+                {field.required && <span className="text-red-500 ml-1">*</span>}
+              </label>
+              
+              {field.type === 'textarea' ? (
+                <textarea
+                  id={`field-${field.id}`}
+                  rows={4}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  value={responses[field.id] || ''}
+                  onChange={(e) => handleChange(field.id, e.target.value)}
+                  required={field.required}
+                  placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                />
+              ) : (
+                <input
+                  type={field.type || 'text'}
+                  id={`field-${field.id}`}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  value={responses[field.id] || ''}
+                  onChange={(e) => handleChange(field.id, e.target.value)}
+                  required={field.required}
+                  placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                />
+              )}
+              
+              {field.description && (
+                <p className="mt-1 text-xs text-gray-500">{field.description}</p>
+              )}
+            </div>
+          ))}
+
+          {error && (
+            <div className="rounded-md bg-red-50 p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="pt-4 border-t border-gray-200 flex justify-end">
+            <motion.button
+              type="submit"
+              disabled={submitting}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={`inline-flex items-center px-6 py-2.5 border border-transparent text-base font-medium rounded-md shadow-sm text-white ${
+                submitting
+                  ? 'bg-blue-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+              }`}
+            >
+              {submitting ? (
+                <>
+                  <FiLoader className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                  Submitting...
+                </>
+              ) : (
+                'Submit Form'
+              )}
+            </motion.button>
+          </div>
+        </form>
+      </div>
+    </motion.div>
   );
 };
 
