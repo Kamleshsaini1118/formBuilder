@@ -2,8 +2,8 @@ services:
   - type: web
     name: form-builder-backend
     env: node
-    buildCommand: cd backend && npm install
-    startCommand: cd backend && npm start
+    buildCommand: cd /opt/render/project/backend && npm install
+    startCommand: cd /opt/render/project/backend && npm start
     envVars:
       - key: NODE_ENV
         value: production
