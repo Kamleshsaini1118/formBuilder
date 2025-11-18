@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: form-builder-backend
+    env: node
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        value: mongodb+srv://form:QhEkNLCkewZ1lK0Z@cluster1.b2ik1.mongodb.net/form
